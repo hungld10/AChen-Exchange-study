@@ -53,11 +53,11 @@ contract Exchange is ERC20 {
 
             // EthReserve should be the current ethBalance subtracted by the value of ether sent by the user
             // in the current `addLiquidity` call
-            uint ethReverse = ethBalance - msg.value;
+            uint ethReserve = ethBalance - msg.value;
             // Ratio should always be maintained so that there are no major price impacts when adding liquidity
             // Ratio here is -> (chickenTokenAmount user can add/chickenTokenReserve in the contract) = (Eth Sent by the user/Eth Reserve in the contract);
             // So doing some maths, (chickenTokenAmount user can add) = (Eth Sent by the user * chickenTokenReserve /Eth Reserve);
-            uint chickenTokenAmount = (msg.value * chickenTokenReserve) / ethReverse;
+            uint chickenTokenAmount = (msg.value * chickenTokenReserve) / ethReserve;
             require(_amount >= chickenTokenAmount, "Amount of tokens sent is less than the minimum tokens required");
             // transfer only (chickenTokenAmount user can add) amount of `Chicken tokens` from users account
             // to the contract
@@ -67,7 +67,7 @@ contract Exchange is ERC20 {
             // Ratio here to be maintained is ->
             // (lp tokens to be sent to the user(liquidity)/ totalSupply of LP tokens in contract) = (eth sent by the user)/(eth reserve in the contract)
             // by some maths -> liquidity =  (totalSupply of LP tokens in contract * (eth sent by the user))/(eth reserve in the contract)
-            liquidity = (totalSupply() * msg.value) / ethReverse;
+            liquidity = (totalSupply() * msg.value) / ethReserve;
             _mint(msg.sender, liquidity);
         }
         return liquidity;
@@ -79,7 +79,7 @@ contract Exchange is ERC20 {
     */
     function removeLiquidity(uint _amount) public returns (uint, uint) {
         require(_amount > 0, "_amount should be greater than zero");
-        uint ethReverse = address(this).balance;
+        uint ethReserve = address(this).balance;
         uint _totalSupply = totalSupply();
         // The amount of Eth that would be sent back to the user is based
         // on a ratio
@@ -87,7 +87,7 @@ contract Exchange is ERC20 {
         // = (amount of LP tokens that user wants to withdraw)/ Total supply of `LP` tokens
         // Then by some maths -> (Eth sent back to the user)
         // = (Current Eth reserve * amount of LP tokens that user wants to withdraw)/Total supply of `LP` tokens
-        uint ethAmount = (ethReverse * _amount) / _totalSupply;
+        uint ethAmount = (ethReserve * _amount) / _totalSupply;
         // The amount of Chicken token that would be sent back to the user is based
         // on a ratio
         // Ratio is -> (Chicken sent back to the user/ Current Chicken token reserve)
@@ -104,4 +104,72 @@ contract Exchange is ERC20 {
         ERC20(chickenTokenAddress).transfer(msg.sender, chickenTokenAmount);
         return (ethAmount, chickenTokenAmount);
     }
+
+    /**
+        @dev Returns the amount Eth/Chicken tokens that would be returned to the user
+        * in the swap
+    */
+    function getAmountOfToken(
+        uint256 inputAmount, 
+        uint256 inputReserve, 
+        uint256 outputReserve
+    ) public pure returns (uint256) {
+        require(inputReserve > 0 && outputReserve > 0, "invalid reverses");
+        // We are charging a fees of `1%`
+        // Input amount with fees = (input amount - (1*(input amount)/100)) = ((input amount)*99)/100
+        uint256 inputAmountWithFee = inputAmount * 99;
+        // Because we need to follow the concept of `XY = K` curve
+        // We need to make sure (x + Δx)*(y - Δy) = (x)*(y)
+        // so the final formulae is Δy = (y*Δx)/(x + Δx);
+        // Δy in our case is `tokens to be recieved`
+        // Δx = ((input amount)*99)/100, x = inputReserve, y = outputReserve
+        // So by putting the values in the formulae you can get the numerator and denominator
+        uint256 numerator = inputAmountWithFee * outputReserve;
+        uint256 denominator = (inputReserve * 100) + inputAmountWithFee;
+        return numerator / denominator;
+    }
+
+    /**
+        @dev Swaps Ether for Chicken Tokens
+    */
+    function swapToChickenToken(uint _minTokens) public payable {
+        uint256 tokenReserve = getReserve();
+        // call the `getAmountOfTokens` to get the amount of chicken tokens
+        // that would be returned to the user after the swap
+        // Notice that the `inputReserve` we are sending is equal to
+        //  `address(this).balance - msg.value` instead of just `address(this).balance`
+        // because `address(this).balance` already contains the `msg.value` user has sent in the given call
+        // so we need to subtract it to get the actual input reserve
+        uint256 tokensBought = getAmountOfToken(
+            msg.value, 
+            address(this).balance - msg.value, 
+            tokenReserve
+        );
+
+        require(tokensBought >= _minTokens, "insufficient output amount");
+        // Transfer the `Chicken` tokens to the user
+        ERC20(chickenTokenAddress).transfer(msg.sender, tokensBought);
+    }
+
+    /**
+        @dev Swaps Chicken Tokens for Ether
+    */
+    function swapToEth(uint _tokensSold, uint _minEth) public {
+        uint256 tokenReserve = getReserve();
+        // call the `getAmountOfTokens` to get the amount of ether
+        // that would be returned to the user after the swap
+        uint256 ethBought = getAmountOfToken(
+            _tokensSold, 
+            tokenReserve, 
+            address(this).balance
+        );
+
+        require(ethBought >= _minEth, "insufficient output amount");
+        // Transfer `Chicken` tokens from the user's address to the contract
+        ERC20(chickenTokenAddress).transferFrom(msg.sender, address(this), _tokensSold);
+        // send the `ethBought` to the user from the contract
+        payable(msg.sender).transfer(ethBought);
+    }
+
+
 }
