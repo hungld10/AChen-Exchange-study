@@ -49,3 +49,38 @@ export const getCHENTokensBalance = async (provider, adddress) => {
     }
 }
 
+/**
+ * getLPTokensBalance: Retrieves the amount of LP tokens in the account
+ * of the provided `address`
+ */
+export const getLPTokensBalance = async (provider, adddress) => {
+    try {
+        const exchangeContract = new Contract(
+            EXCHANGE_CONTRACT_ADDRESS,
+            EXCHANGE_CONTRACT_ABI,
+            provider
+        );
+        const balance = await exchangeContract.balanceOf(adddress);
+        return balance;
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+/**
+ * getReserveOfCHENToken: Retrieves the amount of CHEN tokens in the
+ * exchange contarct address
+ */
+export const getReserveOfCHENToken = async (provider) => {
+    try {
+        const exchangeContract = new Contract(
+            EXCHANGE_CONTRACT_ADDRESS,
+            EXCHANGE_CONTRACT_ABI,
+            provider
+        );
+        const reserve = await exchangeContract.getReserve();
+        return reserve;
+    } catch (err) {
+        console.error(err);
+    }
+}
