@@ -137,7 +137,7 @@ export default function Home() {
       if (!_swapAmountWEI.eq(zero)) {
         const provider = await getProviderOrSigner();
         // Get the amount of ether in the contract
-        const _ethBalance = await provider.getEtherBalance(provider, null, true);
+        const _ethBalance = await getEtherBalance(provider, null, true);
         // Call the `getAmountOfTokensReceivedFromSwap` from the utils folder
         const amountOfTokens = await getAmountOfTokensReceivedFromSwap(
           _swapAmountWEI,

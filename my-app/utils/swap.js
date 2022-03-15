@@ -27,7 +27,7 @@ export const getAmountOfTokensReceivedFromSwap = async (
     // `_swapAmountWei`, the input reserve would be the `ethBalance` of the contract and output reserve
     // would be the  `Chicken token` reserve
     if (ethSelected) {
-        amountOfTokens = await exchangeContract.getAmountOfTokens(
+        amountOfTokens = await exchangeContract.getAmountOfToken(
             _swapAmountWei,
             ethBalance,
             reservedCHEN
@@ -36,7 +36,7 @@ export const getAmountOfTokensReceivedFromSwap = async (
         // If ETH is not selected this means our input value is `Chicken` tokens which means our input amount would be
         // `_swapAmountWei`, the input reserve would be the `Chicken token` reserve of the contract and output reserve
         // would be the `ethBalance`
-        amountOfTokens = await exchangeContract.getAmountOfTokens(
+        amountOfTokens = await exchangeContract.getAmountOfToken(
             _swapAmountWei,
             reservedCHEN,
             ethBalance
